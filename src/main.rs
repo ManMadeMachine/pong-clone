@@ -18,7 +18,7 @@ struct Paddle;
 
 #[derive(Component)]
 struct Ball {
-    velocity: Vec2,
+    velocity: Vec2
 }
 
 struct ScoreBoard {
@@ -75,6 +75,7 @@ const PADDLE_SPEED: f32 = 10.0;
 const PADDLE_WIDTH: f32 = 50.0;
 const BALL_RADIUS: f32 = 15.0;
 const BALL_SPAWN_SPEED: f32 = 7.0;
+const BALL_ACCEL: f32 = 1.0;
 
 fn main() {
     App::new()
@@ -252,7 +253,7 @@ fn spawn_ball(
         ..Default::default()
     })
     .insert(Ball{
-        velocity: starting_direction.normalize() * BALL_SPAWN_SPEED
+        velocity: starting_direction.normalize() * BALL_SPAWN_SPEED,
     });
 }
 
@@ -390,18 +391,32 @@ fn check_collisions(
         && b_trans.y + BALL_RADIUS >= paddle.translation.y - paddle_half
         && b_trans.x - BALL_RADIUS <= paddle.translation.x + PADDLE_WIDTH / 2.0
         {
-            println!("collision");
-            
+
             // ball colliding left or right side
             if ball.velocity.x > 0.0 && b_trans.x < paddle.translation.x 
-            || ball.velocity.x < 0.0 && b_trans.x > paddle.translation.x {
+            || ball.velocity.x < 0.0 && b_trans.x > paddle.translation.x 
+            {
+                // Change direction and accelerate
                 ball.velocity.x = -ball.velocity.x;
-            }
+                
+                if ball.velocity.x < 0.0 {
+                    ball.velocity.x -= BALL_ACCEL;
+                } else {
+                    ball.velocity.x += BALL_ACCEL;
+                }
 
-            // ball colliding top or bottom side
-            if ball.velocity.y < 0.0 && b_trans.y > paddle.translation.y
-            || ball.velocity.y > 0.0 && b_trans.y < paddle.translation.y {
+            // TODO: Here be some bug, which in some cases makes the ball reverse direction instead of bouncing
+            // Maybe fix, or let it be a Feature :)
+            } else if ball.velocity.y < 0.0 && b_trans.y > paddle.translation.y // ball colliding top or bottom side
+                || ball.velocity.y > 0.0 && b_trans.y < paddle.translation.y 
+            {
                 ball.velocity.y = -ball.velocity.y;
+
+                if ball.velocity.y < 0.0 {
+                    ball.velocity.y -= BALL_ACCEL;
+                } else {
+                    ball.velocity.y += BALL_ACCEL;
+                }
             }
         }
     }

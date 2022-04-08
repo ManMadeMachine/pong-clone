@@ -7,7 +7,8 @@ Run the game by cloning this repo and running `cargo run`.
 Requires [Rust](https://www.rust-lang.org/) to be installed.
 
 ### TODO:
- * Make the ball go faster as the round progresses
+ * ~~Make the ball go faster as the round progresses~~
+    * Done'd, every collision accelerates the ball. 
  * Create 'sections' for the paddles, so that the ball bounces differently when hitting different sections
  * Add a menu screen and the ability to pause, restart and quit the game
  * Add a settings menu in which the paddle and ball colors can be changed
