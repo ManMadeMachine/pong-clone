@@ -8,11 +8,22 @@ struct Player1;
 struct Player2;
 
 #[derive(Component)]
+struct Player1ScoreText;
+
+#[derive(Component)]
+struct Player2ScoreText;
+
+#[derive(Component)]
 struct Paddle;
 
 #[derive(Component)]
 struct Ball {
     velocity: Vec2,
+}
+
+struct ScoreBoard {
+    player1: i32,
+    player2: i32,
 }
 
 // TODO: Add an in-game main menu and a state for it?
@@ -28,6 +39,7 @@ enum MoveDirection {
 }
 
 // TODO: Player paddle and ball colors
+// TODO: Maybe font colors also etc..?  :)
 struct Config {
     player1_start_position: Vec3,
     player2_start_position: Vec3,
@@ -56,27 +68,28 @@ impl FromWorld for Config {
             window_half_height,
             window_half_width
         }
-
     }
 }
 
 const PADDLE_SPEED: f32 = 10.0;
 const PADDLE_WIDTH: f32 = 50.0;
-const BALL_RADIUS: f32 = 10.0;
+const BALL_RADIUS: f32 = 15.0;
 const BALL_SPAWN_SPEED: f32 = 7.0;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
         .insert_resource(WindowDescriptor {
             title: "Pong!".to_string(),
-            width: 800.0,
-            height: 600.0,
+            width: 1280.0,
+            height: 720.0,
             ..Default::default()
         })
+        .add_plugins(DefaultPlugins)
         .insert_resource(ClearColor(Color::rgb(0.04, 0.04, 0.04)))
+        .insert_resource(ScoreBoard { player1: 0, player2: 0})
         .init_resource::<Config>()
-        .add_startup_system(setup_camera)
+        .add_startup_system(setup_cameras)
+        .add_startup_system(setup_ui)
         .add_startup_system(create_paddles)
         .add_startup_system(spawn_ball)
         .add_state(AppState::InGame)
@@ -87,6 +100,7 @@ fn main() {
                 .with_system(player1_input)
                 .with_system(player2_input)
                 .with_system(check_collisions)
+                .with_system(scoreboard_system)
         )
         .add_system_set(
             SystemSet::on_enter(AppState::Reset)
@@ -100,8 +114,92 @@ fn main() {
         .run();
 }
 
-fn setup_camera(mut commands: Commands) {
+fn setup_cameras(mut commands: Commands) {
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+    commands.spawn_bundle(UiCameraBundle::default());
+}
+
+fn setup_ui(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    windows: Res<Windows>
+) {
+    let window = windows.get_primary().unwrap();
+
+    let offset = window.height() / 10.0;
+
+    // Create the 'net'
+    for i in 0..10 {
+        commands.spawn_bundle(SpriteBundle {
+            sprite: Sprite {
+                color: Color::rgb(1.0, 1.0, 1.0),
+                ..Default::default()
+            },
+            transform: Transform {
+                scale: Vec3::new(10.0, 20.0, 0.0),
+                translation: Vec3::new(0.0, offset * i as f32 - window.height() / 2.0 + 20.0, 0.0),
+                ..Default::default()
+            },
+            ..Default::default()
+        });
+    }
+
+    // Player 1 score
+    commands.spawn_bundle(TextBundle {
+        text: Text {
+            sections: vec![
+                // Player 1 score section
+                TextSection {
+                    value: "".to_string(),
+                    style: TextStyle {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font_size: 40.0,
+                        color: Color::rgb(1.0, 1.0, 1.0),
+                    },
+                    ..Default::default()
+                }
+            ],
+            ..Default::default()
+        },
+        style: Style {
+            position_type: PositionType::Absolute,
+            position: Rect {
+                top: Val::Px(10.0),
+                left: Val::Px(window.width() / 2.0 - 50.0 - 20.0),
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+        ..Default::default()
+    }).insert(Player1ScoreText);
+
+    // Player 2 score
+    commands.spawn_bundle(TextBundle {
+        text: Text {
+            sections: vec![
+                TextSection {
+                    value: "".to_string(),
+                    style: TextStyle {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font_size: 40.0,
+                        color: Color::rgb(1.0, 1.0, 1.0),
+                    },
+                    ..Default::default()
+                }
+            ],
+            ..Default::default()
+        },
+        style: Style {
+            position_type: PositionType::Absolute,
+            position: Rect {
+                top: Val::Px(10.0),
+                left: Val::Px(window.width() / 2.0 + 50.0),
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+        ..Default::default()
+    }).insert(Player2ScoreText);
 }
 
 fn create_paddles(config: Res<Config>, mut commands: Commands) {
@@ -147,7 +245,7 @@ fn spawn_ball(
     commands.spawn_bundle(MaterialMesh2dBundle {
         mesh: meshes.add(Mesh::from(shape::UVSphere::default())).into(),
         transform: Transform {
-            scale: Vec3::new(2.0 * BALL_RADIUS, 2.0 * BALL_RADIUS, 1.0),
+            scale: Vec3::new(BALL_RADIUS, BALL_RADIUS, 0.0),
             ..Default::default()
         },
         material: materials.add(ColorMaterial::from(Color::rgb(1.0, 1.0, 1.0))).into(),
@@ -193,7 +291,8 @@ fn _reset_paddles(
 }
 
 fn move_ball(
-    config: Res<Config>, 
+    config: Res<Config>,
+    mut scoreboard: ResMut<ScoreBoard>,
     mut app_state: ResMut<State<AppState>>,
     mut ball_query: Query<(&mut Transform, &mut Ball)>
 ) {
@@ -214,9 +313,11 @@ fn move_ball(
     // and transition to Reset state
     if transform.translation.x - BALL_RADIUS < -config.window_half_width{
         println!("Player2 scores");
+        scoreboard.player2 += 1;
         app_state.set(AppState::Reset).unwrap();
     } else if transform.translation.x + BALL_RADIUS > config.window_half_width {
         println!("Player1 score");
+        scoreboard.player1 += 1;
         app_state.set(AppState::Reset).unwrap();
     }
 }
@@ -304,6 +405,19 @@ fn check_collisions(
             }
         }
     }
+}
+
+// TODO: Horrible with/without, should figure out a better way..
+fn scoreboard_system(
+    scoreboard: Res<ScoreBoard>,
+    mut player1_text_query: Query<&mut Text, (With<Player1ScoreText>, Without<Player2ScoreText>)>,
+    mut player2_text_query: Query<&mut Text, (With<Player2ScoreText>, Without<Player1ScoreText>)>,
+) {
+    let mut player1_text = player1_text_query.single_mut();
+    let mut player2_text = player2_text_query.single_mut();
+
+    player1_text.sections[0].value = format!("{}", scoreboard.player1);
+    player2_text.sections[0].value = format!("{}", scoreboard.player2);
 }
 
 fn generate_ball_start_direction() -> Vec2 {
