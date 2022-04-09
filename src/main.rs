@@ -29,7 +29,6 @@ struct ScoreBoard {
     player2: i32,
 }
 
-// TODO: Add an in-game main menu and a state for it?
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 enum AppState {
     Start,
@@ -101,7 +100,6 @@ fn main() {
         .add_startup_system(setup_ui)
         .add_startup_system(create_paddles)
         .add_startup_system(spawn_ball)
-        // system sets for InGame and Reset states
         .add_system_set(
             SystemSet::on_update(AppState::InGame)
                 .with_system(move_ball)
@@ -114,11 +112,6 @@ fn main() {
         .add_system_set(
             SystemSet::on_enter(AppState::Reset)
                 .with_system(reset_ball)
-                // Original PONG did not reset paddles 
-                // Still leacing this here, because of the scoring system
-                // Might want to do something like "first to ten points"
-                // and then reset the whole game, paddles included
-                // .with_system(reset_paddles.after("reset_ball"))
         )
         .add_system_set(
             SystemSet::on_enter(AppState::Restart)
@@ -134,6 +127,7 @@ fn setup_cameras(mut commands: Commands) {
     commands.spawn_bundle(UiCameraBundle::default());
 }
 
+// TODO: Maybe do this in a plugin?
 fn setup_ui(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -275,8 +269,6 @@ fn reset_ball(
     mut app_state: ResMut<State<AppState>>,
     mut ball_query: Query<(&mut Transform, &mut Ball), Without<Paddle>>
 ) {
-    println!("RESET BALL");
-
     // Reset ball and randomize starting velocity again
     let (mut ball_transform, mut ball) = ball_query.single_mut();
 
@@ -294,8 +286,6 @@ fn reset_paddles(
     mut player1_query: Query<(&mut Transform, &Player1), Without<Player2>>,
     mut player2_query: Query<(&mut Transform, &Player2), Without<Player1>>
 ) {
-    println!("RESET PADDLES");
-
     let (mut p1, _) = player1_query.single_mut();
     let (mut p2, _) = player2_query.single_mut();
 
@@ -333,11 +323,9 @@ fn move_ball(
     // Check ball collision with either side of the screen, give points
     // and transition to Reset state
     if transform.translation.x - BALL_RADIUS < -config.window_half_width{
-        println!("Player2 scores");
         scoreboard.player2 += 1;
         app_state.set(AppState::Reset).unwrap();
     } else if transform.translation.x + BALL_RADIUS > config.window_half_width {
-        println!("Player1 score");
         scoreboard.player1 += 1;
         app_state.set(AppState::Reset).unwrap();
     }
@@ -455,6 +443,7 @@ fn scoreboard_system(
     player2_text.sections[0].value = format!("{}", scoreboard.player2);
 }
 
+// Toggle main menu on/off with Esc key
 fn main_menu_controls(
     mut keyboard_input: ResMut<Input<KeyCode>>,
     mut app_state: ResMut<State<AppState>>

@@ -1,4 +1,4 @@
-use bevy::{prelude::*, app::AppExit, ecs::system::EntityCommands};
+use bevy::{prelude::*, app::AppExit};
 use super::AppState;
 
 pub struct MainMenuPlugin;
@@ -8,7 +8,6 @@ struct MainMenu {
     ui_camera: Entity,
 }
 
-// TODO: Restart, which transitions into Restart state, which in turn starts the game from scratch
 #[derive(Component)]
 enum MenuButton {
     Play,
@@ -26,7 +25,7 @@ struct MenuColors {
     quit_button_hover: Color,
 }
 
-// TODO: other UI colors also
+
 impl FromWorld for MenuColors {
     fn from_world(_world: &mut World) -> Self {
         MenuColors { 
@@ -251,9 +250,7 @@ fn close_menu(
     mut keyboard_input: ResMut<Input<KeyCode>>,
     mut app_state: ResMut<State<AppState>>
 ) {
-    // TODO: Only check Esc when in MainMenu state, Start needs an interaction with the Play/Continue button
-    if *app_state.current() == AppState::MainMenu || 
-        *app_state.current() == AppState::Start {
+    if *app_state.current() == AppState::MainMenu {
         if keyboard_input.just_pressed(KeyCode::Escape) {
             app_state.set(AppState::InGame).unwrap();
             keyboard_input.reset(KeyCode::Escape);
@@ -262,7 +259,6 @@ fn close_menu(
 }
 
 fn cleanup(mut commands: Commands, menu: Res<MainMenu>){
-    // TODO: despawn_recursive for main_menu root and menu UI camera
     commands.entity(menu.ui_root).despawn_recursive();
     commands.entity(menu.ui_camera).despawn_recursive();
 }
