@@ -14,7 +14,8 @@ Player 2 controls: Up, Down arrows
    * Done'd, every paddle collision accelerates the ball. 
  * Create 'sections' for the paddles, so that the ball bounces differently when hitting different sections
  * ~~Add a menu screen and the ability to pause, restart and quit the game~~
-   * Game starts at menu screen, can be paused/continued and quit. Still needs restart.
+   * ~~Game starts at menu screen, can be paused/continued and quit. Still needs restart.~~
+      * Now starts from menu screen, can be paused/continued, restarted and quit.
  * Add a settings menu in which the paddle and ball colors can be changed
  * Change paddles and ball to use sprite assets and allow users to apply custom skins
  * Add powerups
