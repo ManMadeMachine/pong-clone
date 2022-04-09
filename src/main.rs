@@ -1,6 +1,9 @@
 use rand::Rng;
 use bevy::{prelude::*, sprite::MaterialMesh2dBundle};
 
+mod main_menu;
+use main_menu::MainMenuPlugin;
+
 #[derive(Component)]
 struct Player1;
 
@@ -29,6 +32,8 @@ struct ScoreBoard {
 // TODO: Add an in-game main menu and a state for it?
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 enum AppState {
+    Start,
+    MainMenu,
     InGame,
     Reset
 }
@@ -89,11 +94,12 @@ fn main() {
         .insert_resource(ClearColor(Color::rgb(0.04, 0.04, 0.04)))
         .insert_resource(ScoreBoard { player1: 0, player2: 0})
         .init_resource::<Config>()
+        .add_state(AppState::Start)
+        .add_plugin(MainMenuPlugin)
         .add_startup_system(setup_cameras)
         .add_startup_system(setup_ui)
         .add_startup_system(create_paddles)
         .add_startup_system(spawn_ball)
-        .add_state(AppState::InGame)
         // system sets for InGame and Reset states
         .add_system_set(
             SystemSet::on_update(AppState::InGame)
@@ -102,6 +108,7 @@ fn main() {
                 .with_system(player2_input)
                 .with_system(check_collisions)
                 .with_system(scoreboard_system)
+                .with_system(main_menu_controls)
         )
         .add_system_set(
             SystemSet::on_enter(AppState::Reset)
@@ -433,6 +440,18 @@ fn scoreboard_system(
 
     player1_text.sections[0].value = format!("{}", scoreboard.player1);
     player2_text.sections[0].value = format!("{}", scoreboard.player2);
+}
+
+fn main_menu_controls(
+    mut keyboard_input: ResMut<Input<KeyCode>>,
+    mut app_state: ResMut<State<AppState>>
+) {
+    if *app_state.current() == AppState::InGame {
+        if keyboard_input.just_pressed(KeyCode::Escape) {
+            app_state.set(AppState::MainMenu).unwrap();
+            keyboard_input.reset(KeyCode::Escape);
+        }
+    }
 }
 
 fn generate_ball_start_direction() -> Vec2 {
