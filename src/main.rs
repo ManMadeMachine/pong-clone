@@ -33,6 +33,7 @@ struct ScoreBoard {
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 enum AppState {
     Start,
+    Restart,
     MainMenu,
     InGame,
     Reset
@@ -112,12 +113,18 @@ fn main() {
         )
         .add_system_set(
             SystemSet::on_enter(AppState::Reset)
-                .with_system(reset_ball.label("reset_ball"))
+                .with_system(reset_ball)
                 // Original PONG did not reset paddles 
                 // Still leacing this here, because of the scoring system
                 // Might want to do something like "first to ten points"
                 // and then reset the whole game, paddles included
                 // .with_system(reset_paddles.after("reset_ball"))
+        )
+        .add_system_set(
+            SystemSet::on_enter(AppState::Restart)
+                .with_system(reset_ball.label("reset_ball"))
+                .with_system(reset_paddles.label("reset_paddles").after("reset_ball"))
+                .with_system(reset_score.after("reset_paddles"))
         )
         .run();
 }
@@ -276,13 +283,14 @@ fn reset_ball(
     ball_transform.translation = Vec3::new(0.0, 0.0, 0.0);
     ball.velocity = generate_ball_start_direction().normalize() * BALL_SPAWN_SPEED;
 
-    // Go to InGame state to start another round
-    app_state.set(AppState::InGame).unwrap();
+    // Go to InGame state to start another round if state was round Reset
+    if *app_state.current() == AppState::Reset {
+        app_state.set(AppState::InGame).unwrap();
+    }
 }
 
-fn _reset_paddles(
+fn reset_paddles(
     config: Res<Config>,
-    mut app_state: ResMut<State<AppState>>,
     mut player1_query: Query<(&mut Transform, &Player1), Without<Player2>>,
     mut player2_query: Query<(&mut Transform, &Player2), Without<Player1>>
 ) {
@@ -293,8 +301,13 @@ fn _reset_paddles(
 
     p1.translation = config.player1_start_position;
     p2.translation = config.player2_start_position;
+}
 
-    // Go to InGame state to start another round
+fn reset_score(mut scoreboard: ResMut<ScoreBoard>, mut app_state: ResMut<State<AppState>>) {
+    scoreboard.player1 = 0;
+    scoreboard.player2 = 0;
+
+    // Change to InGame
     app_state.set(AppState::InGame).unwrap();
 }
 

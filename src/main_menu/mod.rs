@@ -1,4 +1,4 @@
-use bevy::{prelude::*, app::AppExit};
+use bevy::{prelude::*, app::AppExit, ecs::system::EntityCommands};
 use super::AppState;
 
 pub struct MainMenuPlugin;
@@ -13,12 +13,15 @@ struct MainMenu {
 enum MenuButton {
     Play,
     Continue,
+    Restart,
     Quit
 }
 
 struct MenuColors {
     play_button_normal: Color,
     play_button_hover: Color,
+    restart_button_normal: Color,
+    restart_button_hover: Color,
     quit_button_normal: Color,
     quit_button_hover: Color,
 }
@@ -29,6 +32,8 @@ impl FromWorld for MenuColors {
         MenuColors { 
             play_button_normal: Color::rgb(0.17, 0.78, 0.19),
             play_button_hover: Color::rgb(0.16, 1.0, 0.18),
+            restart_button_normal: Color::rgb(0.0, 0.62, 1.0),
+            restart_button_hover: Color::rgb(0.0, 0.38, 1.0),
             quit_button_normal: Color::rgb(1.0, 0.12, 0.11),
             quit_button_hover: Color::rgb(0.84, 0.0, 0.04),
         }
@@ -65,6 +70,30 @@ impl Plugin for MainMenuPlugin {
             SystemSet::on_exit(AppState::MainMenu)
                 .with_system(cleanup)
         );
+    }
+}
+
+fn button(color: Color) -> ButtonBundle {
+    ButtonBundle {
+        style: Style {
+            size: Size::new(Val::Px(200.0), Val::Px(50.0)),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            ..Default::default()
+        },
+        color: color.into(),
+        ..Default::default()
+    }
+}
+
+fn button_text(text: &str, asset_server: &Res<AssetServer>) -> TextBundle {
+    TextBundle{
+        text: Text::with_section(text, TextStyle {
+            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+            font_size: 20.0,
+            color: Color::rgb(1.0, 1.0, 1.0),
+        }, Default::default()),
+        ..Default::default()
     }
 }
 
@@ -155,50 +184,23 @@ fn setup_menu(
                     let component = if *app_state.current() == AppState::Start { MenuButton::Play } else { MenuButton::Continue };
                     let text = if *app_state.current() == AppState::Start { "Play" } else { "Continue" };
 
-                    // TODO: Refactor button creation into a function
-                    // Play/Continue 
-                    parent.spawn_bundle(ButtonBundle {
-                        style: Style {
-                            size: Size::new(Val::Px(200.0), Val::Px(50.0)),
-                            justify_content: JustifyContent::Center,
-                            align_items: AlignItems::Center,
-                            ..Default::default()
-                        },
-                        color: colors.play_button_normal.into(),
-                        ..Default::default()
-                    }).with_children(|parent| {
-                        // Button text
-                        parent.spawn_bundle(TextBundle{
-                            text: Text::with_section(text, TextStyle {
-                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                font_size: 20.0,
-                                color: Color::rgb(0.0, 0.0, 0.0),
-                            }, Default::default()),
-                            ..Default::default()
-                        });
-                    }).insert(component);
+                    // Play/Continue
+                    parent.spawn_bundle(button(colors.play_button_normal))
+                        .with_children(|parent| {
+                            parent.spawn_bundle(button_text(text, &asset_server));
+                        }).insert(component);
+
+                    // Restart
+                    parent.spawn_bundle(button(colors.restart_button_normal))
+                        .with_children(|parent| {
+                            parent.spawn_bundle(button_text("Restart", &asset_server));
+                        }).insert(MenuButton::Restart);
 
                     // Quit
-                    parent.spawn_bundle(ButtonBundle {
-                        style: Style {
-                            size: Size::new(Val::Px(200.0), Val::Px(50.0)),
-                            justify_content: JustifyContent::Center,
-                            align_items: AlignItems::Center,
-                            ..Default::default()
-                        },
-                        color: colors.quit_button_normal.into(),
-                        ..Default::default()
-                    }).with_children(|parent| {
-                        // Button text
-                        parent.spawn_bundle(TextBundle{
-                            text: Text::with_section("Quit", TextStyle {
-                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                font_size: 20.0,
-                                color: Color::rgb(1.0, 1.0, 1.0),
-                            }, Default::default()),
-                            ..Default::default()
-                        });
-                    }).insert(MenuButton::Quit);
+                    parent.spawn_bundle(button(colors.quit_button_normal))
+                        .with_children(|parent| {
+                            parent.spawn_bundle(button_text("Quit", &asset_server));
+                        }).insert(MenuButton::Quit);
                 });
             });
         });
@@ -223,18 +225,21 @@ fn button_system(
             Interaction::Hovered => {
                 match *menu_button {
                     MenuButton::Play | MenuButton::Continue => *color = colors.play_button_hover.into(),
+                    MenuButton::Restart => *color = colors.restart_button_hover.into(),
                     MenuButton::Quit => *color = colors.quit_button_hover.into(),
                 }
             },
             Interaction::Clicked => {
                 match *menu_button {
                     MenuButton::Continue | MenuButton::Play => app_state.set(AppState::InGame).unwrap(),
+                    MenuButton::Restart => app_state.set(AppState::Restart).unwrap(),
                     MenuButton::Quit => exit.send(AppExit),
                 }
             },
             Interaction::None => {
                 match *menu_button {
                     MenuButton::Continue | MenuButton::Play => *color = colors.play_button_normal.into(),
+                    MenuButton::Restart => *color = colors.restart_button_normal.into(),
                     MenuButton::Quit => *color = colors.quit_button_normal.into(),
                 }
             }
